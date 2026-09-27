@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   CUSTOM_PRODUCTS: 'alakayfak_custom_products_v4',
   ORDERS: 'alakayfak_orders_cache_v4',
   SETTINGS: 'alakayfak_settings_cache_v4',
+  CATEGORIES: 'alakayfak_categories_cache_v4',
 }
 
 const BROADCAST_CHANNEL_NAME = 'alakayfak_store_sync_channel'
@@ -136,7 +137,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  const [categories, setCategories] = useState<Category[]>(initialCategories)
+  const [categories, setCategories] = useState<Category[]>(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.CATEGORIES)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {}
+    return initialCategories
+  })
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.ORDERS)
@@ -448,33 +458,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [notifyCatalogChanged])
 
-  const saveCategory = useCallback(async (input: CategoryInput) => {
+  const saveCategory = useCallback(async (input: CategoryInput, imageFile?: File) => {
+    let image = input.image || '/products/bag-blush.png'
+    if (imageFile) {
+      try {
+        image = await uploadProductImage(imageFile)
+      } catch (err) {
+        console.error('Category image processing failed', err)
+      }
+    }
+
     const newCat: Category = {
       id: input.id || `cat_${Date.now()}`,
-      slug: input.slug,
+      slug: input.slug || input.label.trim().replace(/\s+/g, '-').toLowerCase(),
       label: input.label,
       subtitle: input.subtitle,
-      image: input.image,
-      sortOrder: input.sortOrder,
-      isActive: input.isActive,
+      image,
+      sortOrder: Number(input.sortOrder) || 1,
+      isActive: input.isActive ?? true,
     }
 
     setCategories((current) => {
-      if (input.id) {
-        return current.map((c) => (c.id === input.id ? newCat : c))
-      }
-      return [...current, newCat]
+      const updated = input.id
+        ? current.map((c) => (c.id === input.id ? newCat : c))
+        : [...current, newCat]
+      try {
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(updated))
+      } catch {}
+      return updated
     })
+
+    notifyCatalogChanged()
 
     if (isSupabaseConfigured) {
       try {
         const payload = {
-          slug: input.slug,
-          label: input.label,
-          subtitle: input.subtitle,
-          image_url: input.image,
-          sort_order: input.sortOrder,
-          is_active: input.isActive,
+          slug: newCat.slug,
+          label: newCat.label,
+          subtitle: newCat.subtitle,
+          image_url: newCat.image,
+          sort_order: newCat.sortOrder,
+          is_active: newCat.isActive,
         }
         if (input.id && !input.id.startsWith('cat_')) {
           await supabase.from('categories').update(payload).eq('id', input.id)
@@ -482,13 +506,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           await supabase.from('categories').insert(payload)
         }
       } catch (err) {
-        console.warn('Could not save category to Supabase', err)
+        console.warn('Could not save category to Supabase, saved locally', err)
       }
     }
-  }, [])
+  }, [notifyCatalogChanged])
 
   const deleteCategory = useCallback(async (id: string) => {
-    setCategories((current) => current.filter((c) => c.id !== id))
+    setCategories((current) => {
+      const updated = current.filter((c) => c.id !== id)
+      try {
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+    notifyCatalogChanged()
+
     if (isSupabaseConfigured && !id.startsWith('cat_')) {
       try {
         await supabase.from('categories').delete().eq('id', id)
@@ -496,7 +528,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         console.warn('Could not delete category in Supabase', err)
       }
     }
-  }, [])
+  }, [notifyCatalogChanged])
 
   const updateOrderStatus = useCallback(async (id: string, status: OrderStatus) => {
     setOrders((current) => current.map((order) => (order.id === id ? { ...order, status } : order)))
