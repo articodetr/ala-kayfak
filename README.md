@@ -1,32 +1,43 @@
-# React + TypeScript + Vite
+# متجر «على كيفك»
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+متجر حقائب مبني بـ React وTypeScript، مع قاعدة بيانات ومصادقة ولوحة إدارة عبر Supabase.
 
-Currently, two official plugins are available:
+## التشغيل المحلي
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. انسخ `.env.example` إلى `.env.local` وأضف رابط مشروع Supabase ومفتاح `anon` العام.
+2. نفّذ ملف `supabase/migrations/202609270001_store_schema.sql` في Supabase SQL Editor.
+3. شغّل المشروع:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+واجهة المتجر على `/`، ولوحة الإدارة على `/admin`.
+
+عند النشر على Vercel، يضمن `vercel.json` أن فتح `/admin/login` مباشرة يعيد التطبيق إلى React Router بصورة صحيحة. يحتوي `.env.production` على رابط Supabase ومفتاح `anon` العام اللازمين لبناء Vite على Vercel؛ لا تضف `service_role` إلى أي ملف يبدأ بـ`VITE_`.
+
+## تهيئة المدير الأول
+
+من `/admin/login` اختر «تهيئة المدير لأول مرة». الحساب الأول المسموح له بطلب ملكية المتجر هو:
+
+```text
+admin@alakayfak.com
+```
+
+غيّر هذا البريد داخل دالة `claim_first_admin` في ملف migration قبل التنفيذ إذا رغبت ببريد آخر. بعد إنشاء المالك الأول، لا يستطيع أي حساب آخر المطالبة بهذه الصلاحية. إذا كان تأكيد البريد مفعلاً في Supabase، أكّد الرسالة أولاً ثم سجّل الدخول.
+
+## ما تتضمنه قاعدة البيانات
+
+- المنتجات والتصنيفات والمخزون ورفع صور المنتجات.
+- الطلبات وعناصرها مع احتساب الأسعار والشحن داخل PostgreSQL لمنع التلاعب من الواجهة.
+- إعدادات المتجر وبيانات التواصل والعروض.
+- Supabase Auth للإدارة وسياسات Row Level Security لكل الجداول.
+- بيانات أولية مطابقة للكتالوج الحالي.
+
+## الفحص
+
+```bash
+npm run lint
+npm run build
+```

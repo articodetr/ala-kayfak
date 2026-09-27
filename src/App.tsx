@@ -1,9 +1,7 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import heroImage from './assets/hero-bags.png'
-import blushBagImage from './assets/catalog/bag-blush.png'
-import lavenderBagImage from './assets/catalog/bag-lavender.png'
-import sageBagImage from './assets/catalog/bag-sage.png'
-import eveningBagImage from './assets/catalog/bag-evening.png'
+import { useStore } from './context'
+import type { CartItem, CustomerInfo, Product } from './types'
 import './App.css'
 
 type IconName =
@@ -55,40 +53,6 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 
-type Product = {
-  id: number
-  name: string
-  category: string
-  categoryLabel: string
-  price: number
-  oldPrice?: number
-  image: string
-  badge?: string
-  colors: string[]
-  description: string
-}
-
-const products: Product[] = [
-  { id: 1, name: 'حقيبة نُور العملية', category: 'handbags', categoryLabel: 'حقائب يد', price: 229, oldPrice: 269, image: blushBagImage, badge: 'الأكثر مبيعاً', colors: ['#deb0ad', '#2d2b2d', '#d8d1bd'], description: 'حقيبة يد أنيقة بمساحة عملية وحزام كتف قابل للإزالة، تناسب يومك من الصباح للمساء.' },
-  { id: 2, name: 'حقيبة لافندر الناعمة', category: 'shoulder', categoryLabel: 'حقائب كتف', price: 189, image: lavenderBagImage, badge: 'وصل حديثاً', colors: ['#b5a2cd', '#d5b8bd', '#25262b'], description: 'حقيبة كتف ناعمة بخطوط منحنية وقفل ذهبي هادئ، خفيفة وسهلة التنسيق.' },
-  { id: 3, name: 'حقيبة رُبى كروس', category: 'crossbody', categoryLabel: 'حقائب كروس', price: 169, image: sageBagImage, colors: ['#adb99d', '#d0b9a6', '#28323a'], description: 'حقيبة كروس مدمجة بحزام قابل للتعديل، تمنحك حرية الحركة وتحفظ أساسياتك بأناقة.' },
-  { id: 4, name: 'حقيبة سَحابة للمناسبات', category: 'evening', categoryLabel: 'حقائب مناسبات', price: 199, oldPrice: 235, image: eveningBagImage, badge: 'خصم 15%', colors: ['#ece5d9', '#d7acae', '#b7b3a5'], description: 'حقيبة مناسبات بتصميم هلالي وسلسلة ذهبية رقيقة، تكمل إطلالتك بلمسة ناعمة.' },
-  { id: 5, name: 'حقيبة رَواء اليومية', category: 'handbags', categoryLabel: 'حقائب يد', price: 245, image: blushBagImage, badge: 'اختيارنا لكِ', colors: ['#d8a8a3', '#6b463d', '#e9dfd3'], description: 'حقيبة يومية رحبة بجيوب منظمة وإغلاق آمن، مصممة لترافقك في العمل والمشاوير.' },
-  { id: 6, name: 'حقيبة أُنس الصغيرة', category: 'shoulder', categoryLabel: 'حقائب كتف', price: 149, oldPrice: 179, image: lavenderBagImage, colors: ['#aa95c1', '#e6c6ca', '#23262b'], description: 'تصميم صغير وخفيف مع حزام كتف مريح ومساحة كافية لكل أساسياتك اليومية.' },
-  { id: 7, name: 'حقيبة مَدى المرنة', category: 'crossbody', categoryLabel: 'حقائب كروس', price: 179, image: sageBagImage, badge: 'شحن مجاني', colors: ['#9ba98e', '#c9ad94', '#1f3035'], description: 'حقيبة كروس مرنة للاستخدام اليومي بحزام طويل قابل للتعديل وتفاصيل عملية.' },
-  { id: 8, name: 'حقيبة لُجين المسائية', category: 'evening', categoryLabel: 'حقائب مناسبات', price: 215, oldPrice: 259, image: eveningBagImage, badge: 'كمية محدودة', colors: ['#e5ded1', '#c89b9e', '#aaa596'], description: 'حقيبة مسائية رقيقة بلمعة هادئة وسلسلة أنيقة، مثالية للدعوات والمناسبات.' },
-]
-
-const categories = [
-  { id: 'all', label: 'كل الحقائب', subtitle: 'تصفحي التشكيلة', image: blushBagImage },
-  { id: 'handbags', label: 'حقائب يد', subtitle: 'عملية وأنيقة', image: blushBagImage },
-  { id: 'shoulder', label: 'حقائب كتف', subtitle: 'لإطلالة يومية', image: lavenderBagImage },
-  { id: 'crossbody', label: 'حقائب كروس', subtitle: 'خفيفة ومريحة', image: sageBagImage },
-  { id: 'evening', label: 'حقائب مناسبات', subtitle: 'للحظات الخاصة', image: eveningBagImage },
-]
-
-type CartItem = { product: Product; quantity: number; color: string }
-
 function Brand() {
   return (
     <a className="brand" href="#top" aria-label="على كيفك - الرئيسية">
@@ -106,17 +70,26 @@ function Brand() {
 }
 
 function App() {
+  const { products: allProducts, categories: storedCategories, settings, createOrder } = useStore()
+  const products = useMemo(() => allProducts.filter((product) => product.isActive), [allProducts])
+  const categories = useMemo(() => [
+    { id: 'all', label: 'كل الحقائب', subtitle: 'تصفحي التشكيلة', image: storedCategories[0]?.image || '/products/bag-blush.png' },
+    ...storedCategories.filter((category) => category.isActive).map((category) => ({ id: category.slug, label: category.label, subtitle: category.subtitle, image: category.image })),
+  ], [storedCategories])
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
-  const [favorites, setFavorites] = useState<number[]>([])
+  const [favorites, setFavorites] = useState<string[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [quickView, setQuickView] = useState<Product | null>(null)
-  const [selectedColor, setSelectedColor] = useState(products[0].colors[0])
+  const [selectedColor, setSelectedColor] = useState('#d8a8a3')
   const [toast, setToast] = useState('')
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
+  const [orderNumber, setOrderNumber] = useState('')
+  const [checkoutError, setCheckoutError] = useState('')
+  const [submittingOrder, setSubmittingOrder] = useState(false)
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -125,7 +98,7 @@ function App() {
       const matchesSearch = !query || `${product.name} ${product.categoryLabel}`.toLowerCase().includes(query)
       return matchesCategory && matchesSearch
     })
-  }, [activeCategory, search])
+  }, [activeCategory, search, products])
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
@@ -164,10 +137,22 @@ function App() {
     window.setTimeout(() => document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }), 50)
   }
 
-  const submitOrder = (event: FormEvent<HTMLFormElement>) => {
+  const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setOrderComplete(true)
-    setCart([])
+    setSubmittingOrder(true)
+    setCheckoutError('')
+    const data = new FormData(event.currentTarget)
+    const customer: CustomerInfo = { fullName: String(data.get('fullName')), phone: String(data.get('phone')), email: String(data.get('email')), city: String(data.get('city')), district: String(data.get('district')), address: String(data.get('address')) }
+    try {
+      const number = await createOrder(customer, cart)
+      setOrderNumber(number)
+      setOrderComplete(true)
+      setCart([])
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : 'تعذر إرسال الطلب. يرجى المحاولة مرة أخرى.')
+    } finally {
+      setSubmittingOrder(false)
+    }
   }
 
   return (
@@ -230,9 +215,9 @@ function App() {
         </section>
 
         <section className="deal-banner page-shell" aria-label="عرض الأسبوع">
-          <div><span>عرض الأسبوع</span><h2>أناقة أكثر، بسعر ألطف.</h2><p>خصم يصل إلى 25% على حقائب المناسبات — لفترة محدودة.</p></div>
+          <div><span>عرض الأسبوع</span><h2>{settings.bannerTitle}</h2><p>{settings.bannerDiscount} على حقائب مختارة — لفترة محدودة.</p></div>
           <button onClick={() => chooseCategory('evening')}>تسوّقي العرض <Icon name="arrow" size={18} /></button>
-          <div className="deal-art"><img src={eveningBagImage} alt="حقيبة مناسبات ضمن عرض الأسبوع" /></div>
+          <div className="deal-art"><img src={categories.find((category) => category.id === 'evening')?.image || '/products/bag-evening.png'} alt="حقيبة مناسبات ضمن عرض الأسبوع" /></div>
         </section>
 
         <section className="products-section page-shell" id="products">
@@ -265,15 +250,15 @@ function App() {
 
       <footer className="market-footer">
         <div className="page-shell footer-columns">
-          <div className="footer-about"><Brand /><p>متجر متخصص في الحقائب النسائية، نختار تصاميم جميلة وعملية لتجد كل واحدة حقيبتها على كيفها.</p><div><a href="https://instagram.com" aria-label="إنستغرام"><Icon name="instagram" /></a><button onClick={() => setToast('سيتم ربط حساب واتساب')} aria-label="واتساب"><Icon name="whatsapp" /></button></div></div>
+          <div className="footer-about"><Brand /><p>متجر متخصص في الحقائب النسائية، نختار تصاميم جميلة وعملية لتجد كل واحدة حقيبتها على كيفها.</p><div><a href={settings.instagram} aria-label="إنستغرام"><Icon name="instagram" /></a><a href={`https://wa.me/${settings.whatsapp}`} aria-label="واتساب"><Icon name="whatsapp" /></a></div></div>
           <div><h3>تسوّقي</h3><button onClick={() => chooseCategory('all')}>كل الحقائب</button><button onClick={() => chooseCategory('handbags')}>حقائب يد</button><button onClick={() => chooseCategory('crossbody')}>حقائب كروس</button><button onClick={() => chooseCategory('evening')}>وصل حديثاً</button></div>
           <div><h3>خدمة العملاء</h3><button onClick={() => setToast('سيتم إضافة صفحة من نحن')}>من نحن</button><button onClick={() => setToast('سيتم إضافة سياسة الشحن')}>الشحن والتوصيل</button><button onClick={() => setToast('سيتم إضافة سياسة الاستبدال')}>الاستبدال والاسترجاع</button><button onClick={() => setToast('سيتم إضافة الأسئلة الشائعة')}>الأسئلة الشائعة</button></div>
-          <div className="contact-column"><h3>تواصلي معنا</h3><span><Icon name="whatsapp" size={18} /> واتساب المتجر</span><span><Icon name="phone" size={18} /> +966 50 000 0000</span><span><Icon name="mail" size={18} /> hello@alakayfak.com</span></div>
+          <div className="contact-column"><h3>تواصلي معنا</h3><span><Icon name="whatsapp" size={18} /> واتساب المتجر</span><span><Icon name="phone" size={18} /> {settings.phone}</span><span><Icon name="mail" size={18} /> {settings.email}</span></div>
         </div>
         <div className="page-shell footer-bottom"><span>© 2026 على كيفك. جميع الحقوق محفوظة.</span><div><button>الخصوصية</button><button>الشروط والأحكام</button><button>سياسة ملفات الارتباط</button></div></div>
       </footer>
 
-      <button className="whatsapp-float" onClick={() => setToast('سيتم ربط رقم واتساب المتجر هنا')} aria-label="واتساب"><Icon name="whatsapp" size={24} /><span>كيف نساعدكِ؟</span></button>
+      <a className="whatsapp-float" href={`https://wa.me/${settings.whatsapp}`} target="_blank" rel="noreferrer" aria-label="واتساب"><Icon name="whatsapp" size={24} /><span>كيف نساعدكِ؟</span></a>
 
       {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
       <aside className={`mobile-menu ${menuOpen ? 'open' : ''}`} aria-hidden={!menuOpen}>
@@ -284,13 +269,13 @@ function App() {
       {cartOpen && <div className="backdrop" onClick={() => setCartOpen(false)} />}
       <aside className={`cart-drawer ${cartOpen ? 'open' : ''}`} aria-hidden={!cartOpen}>
         <div className="drawer-header"><div><small>مشترياتكِ</small><h2>سلة التسوق <b>({cartCount})</b></h2></div><button onClick={() => setCartOpen(false)} aria-label="إغلاق"><Icon name="close" /></button></div>
-        <div className="free-shipping"><p>{subtotal >= 350 ? 'رائع! حصلتِ على الشحن المجاني' : `أضيفي ${350 - subtotal} ر.س لتحصلي على شحن مجاني`}</p><span><i style={{ width: `${Math.min(100, (subtotal / 350) * 100)}%` }} /></span></div>
+        <div className="free-shipping"><p>{subtotal >= settings.freeShippingThreshold ? 'رائع! حصلتِ على الشحن المجاني' : `أضيفي ${Math.max(0, settings.freeShippingThreshold - subtotal)} ${settings.currency} لتحصلي على شحن مجاني`}</p><span><i style={{ width: `${Math.min(100, (subtotal / settings.freeShippingThreshold) * 100)}%` }} /></span></div>
         {cart.length ? <><div className="cart-items">{cart.map((item, index) => <article className="cart-item" key={`${item.product.id}-${item.color}`}><img src={item.product.image} alt="" /><div><span>{item.product.categoryLabel}</span><h3>{item.product.name}</h3><small className="cart-color">اللون: <i style={{ background: item.color }} /></small><strong>{item.product.price} ر.س</strong><div className="quantity"><button onClick={() => updateQuantity(index, -1)}><Icon name="minus" size={14} /></button><span>{item.quantity}</span><button onClick={() => updateQuantity(index, 1)}><Icon name="plus" size={14} /></button></div></div><button className="remove-item" onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Icon name="trash" size={17} /></button></article>)}</div><div className="cart-summary"><div><span>المجموع الفرعي</span><strong>{subtotal} ر.س</strong></div><small>الشحن والضريبة تُحسب عند إتمام الطلب</small><button onClick={() => { setCartOpen(false); setCheckoutOpen(true); setOrderComplete(false) }}>إتمام الطلب <Icon name="arrow" size={18} /></button><p><Icon name="check" size={14} /> دفع آمن ومشفّر</p></div></> : <div className="empty-cart"><span><Icon name="bag" size={34} /></span><h3>سلّتكِ فارغة</h3><p>اكتشفي حقيبة تستحق الاقتناء.</p><button onClick={() => { setCartOpen(false); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }) }}>ابدئي التسوق</button></div>}
       </aside>
 
       {quickView && <div className="modal-backdrop" onMouseDown={() => setQuickView(null)}><div className="product-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setQuickView(null)}><Icon name="close" /></button><div className="modal-image"><img src={quickView.image} alt={quickView.name} />{quickView.badge && <span>{quickView.badge}</span>}</div><div className="modal-content"><small>{quickView.categoryLabel}</small><h2>{quickView.name}</h2><div className="modal-price"><strong>{quickView.price} ر.س</strong>{quickView.oldPrice && <del>{quickView.oldPrice} ر.س</del>}</div><p>{quickView.description}</p><div className="modal-colors"><label>اختاري اللون</label><div>{quickView.colors.map((color, index) => <button key={color} className={selectedColor === color ? 'active' : ''} onClick={() => setSelectedColor(color)} style={{ background: color }} aria-label={`لون ${index + 1}`} />)}</div></div><div className="bag-features"><span><Icon name="check" size={15} /> حزام قابل للتعديل</span><span><Icon name="check" size={15} /> جيب داخلي منظّم</span></div><button className="modal-add" onClick={() => { addToCart(quickView, selectedColor); setQuickView(null); setCartOpen(true) }}>أضيفي للسلة — {quickView.price} ر.س <Icon name="bag" size={18} /></button><small className="modal-delivery"><Icon name="truck" size={17} /> يصلكِ خلال 2–5 أيام عمل</small></div></div></div>}
 
-      {checkoutOpen && <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}><div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCheckoutOpen(false)}><Icon name="close" /></button>{orderComplete ? <div className="order-success"><span><Icon name="check" size={34} /></span><h2>تم استلام طلبك!</h2><p>شكراً لاختيارك «على كيفك». سنرسل تفاصيل الطلب والتوصيل إلى بريدك.</p><button onClick={() => setCheckoutOpen(false)}>العودة للمتجر</button></div> : <><div className="checkout-heading"><small>خطوة أخيرة</small><h2>بيانات التوصيل</h2><p>طلبك بقيمة <strong>{subtotal} ر.س</strong></p></div><form className="checkout-form" onSubmit={submitOrder}><label>الاسم الكامل<input required placeholder="مثال: سارة محمد" /></label><label>رقم الجوال<input required inputMode="tel" placeholder="05xxxxxxxx" pattern="[0-9+ ]{8,}" /></label><label>البريد الإلكتروني<input required type="email" placeholder="name@example.com" /></label><div><label>المدينة<input required placeholder="الرياض" /></label><label>الحي<input required placeholder="اسم الحي" /></label></div><label>العنوان بالتفصيل<textarea required placeholder="الشارع، رقم المبنى، أقرب معلم" /></label><button type="submit">تأكيد الطلب — {subtotal} ر.س <Icon name="check" size={18} /></button><small>هذه تجربة توضيحية ولن يتم خصم أي مبلغ.</small></form></>}</div></div>}
+      {checkoutOpen && <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}><div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCheckoutOpen(false)}><Icon name="close" /></button>{orderComplete ? <div className="order-success"><span><Icon name="check" size={34} /></span><h2>تم استلام طلبك!</h2><p>رقم الطلب <strong>{orderNumber}</strong>. سنرسل تفاصيل الطلب والتوصيل إلى بريدك.</p><button onClick={() => setCheckoutOpen(false)}>العودة للمتجر</button></div> : <><div className="checkout-heading"><small>خطوة أخيرة</small><h2>بيانات التوصيل</h2><p>طلبك بقيمة <strong>{subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee)} {settings.currency}</strong></p></div><form className="checkout-form" onSubmit={submitOrder}><label>الاسم الكامل<input name="fullName" required placeholder="مثال: سارة محمد" /></label><label>رقم الجوال<input name="phone" required inputMode="tel" placeholder="05xxxxxxxx" pattern="[0-9+ ]{8,}" /></label><label>البريد الإلكتروني<input name="email" required type="email" placeholder="name@example.com" /></label><div><label>المدينة<input name="city" required placeholder="الرياض" /></label><label>الحي<input name="district" required placeholder="اسم الحي" /></label></div><label>العنوان بالتفصيل<textarea name="address" required placeholder="الشارع، رقم المبنى، أقرب معلم" /></label>{checkoutError ? <small className="checkout-error">{checkoutError}</small> : null}<button type="submit" disabled={submittingOrder}>{submittingOrder ? 'جارٍ إرسال الطلب…' : `تأكيد الطلب — ${subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee)} ${settings.currency}`} {!submittingOrder ? <Icon name="check" size={18} /> : null}</button><small>لن يتم خصم أي مبلغ؛ الدفع عند الاستلام.</small></form></>}</div></div>}
 
       {toast && <div className="toast"><span><Icon name="check" size={16} /></span>{toast}</div>}
     </div>
