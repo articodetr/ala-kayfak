@@ -25,6 +25,7 @@ type IconName =
   | 'truck'
   | 'user'
   | 'whatsapp'
+  | 'map-pin'
 
 function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, ReactNode> = {
@@ -48,6 +49,7 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
     truck: <><path d="M3 6h11v10H3z" /><path d="M14 10h4l3 3v3h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" /></>,
     user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
     whatsapp: <><path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.3-4.7a8.5 8.5 0 1 1 16.2-4.1Z" /><path d="M8.3 7.8c.2-.4.4-.4.7-.4h.5c.2 0 .4 0 .5.4l.8 1.8c.1.3.1.5-.1.7l-.7.8c-.2.2-.2.4 0 .7.6 1.1 1.5 2 2.6 2.6.3.2.5.2.7-.1l.8-1c.2-.3.5-.3.7-.2l1.9.9c.3.1.4.3.4.5 0 .3-.1 1.5-1 2.1-.8.6-1.8.8-3.1.4-1.4-.4-3.2-1.2-5.1-3.1-1.5-1.5-2.5-3.3-2.8-4.6-.3-1.1 0-2 .2-2.5Z" /></>,
+    'map-pin': <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></>,
   }
 
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
@@ -69,6 +71,47 @@ function Brand() {
   )
 }
 
+const POPULAR_CITY_CHIPS = ['صنعاء', 'عدن', 'تعز', 'حضرموت', 'إب', 'الرياض', 'جدة']
+
+const ALL_CITIES_LIST = [
+  'صنعاء',
+  'عدن',
+  'تعز',
+  'حضرموت - المكلا',
+  'حضرموت - سيئون',
+  'إب',
+  'الحديدة',
+  'ذمار',
+  'مأرب',
+  'شبوة - عتق',
+  'لحج',
+  'أبين',
+  'المهرة - الغيضة',
+  'عمران',
+  'صعدة',
+  'حجة',
+  'البيضاء',
+  'الضالع',
+  'سقطرى',
+  'الرياض',
+  'جدة',
+  'مكة المكرمة',
+  'المدينة المنورة',
+  'الدمام',
+  'الخبر',
+  'الطائف',
+  'أبها',
+  'خميس مشيط',
+  'تبوك',
+  'جازان',
+  'نجران',
+  'بريدة',
+  'حائل',
+  'الجبيل',
+  'ينبع',
+  'الهفوف',
+]
+
 function App() {
   const { products: allProducts, categories: storedCategories, settings, createOrder } = useStore()
   const products = useMemo(() => allProducts.filter((product) => product.isActive), [allProducts])
@@ -87,9 +130,34 @@ function App() {
   const [toast, setToast] = useState('')
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
-  const [orderNumber, setOrderNumber] = useState('')
   const [checkoutError, setCheckoutError] = useState('')
   const [submittingOrder, setSubmittingOrder] = useState(false)
+
+  const [addressForm, setAddressForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('alakayfak_saved_address')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return {
+      fullName: '',
+      phone: '',
+      email: '',
+      city: 'صنعاء',
+      district: '',
+      address: '',
+      notes: '',
+    }
+  })
+
+  const [completedOrderInfo, setCompletedOrderInfo] = useState<{
+    orderNumber: string
+    customer: CustomerInfo
+    notes: string
+    items: CartItem[]
+    totalFormatted: string
+    totalAmount: number
+    currency: string
+  } | null>(null)
 
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -215,11 +283,62 @@ function App() {
     event.preventDefault()
     setSubmittingOrder(true)
     setCheckoutError('')
-    const data = new FormData(event.currentTarget)
-    const customer: CustomerInfo = { fullName: String(data.get('fullName')), phone: String(data.get('phone')), email: String(data.get('email')), city: String(data.get('city')), district: String(data.get('district')), address: String(data.get('address')) }
+
+    const customer: CustomerInfo = {
+      fullName: addressForm.fullName.trim(),
+      phone: addressForm.phone.trim(),
+      email: addressForm.email?.trim() || '',
+      city: addressForm.city.trim(),
+      district: addressForm.district.trim(),
+      address: addressForm.address.trim(),
+    }
+    const notes = addressForm.notes?.trim() || ''
+
+    if (!customer.fullName) {
+      setCheckoutError('يرجى إدخال اسم المستلم الكامل.')
+      setSubmittingOrder(false)
+      return
+    }
+    if (!customer.phone) {
+      setCheckoutError('يرجى إدخال رقم الجوال للتواصل وتأكيد الطلب.')
+      setSubmittingOrder(false)
+      return
+    }
+    if (!customer.city) {
+      setCheckoutError('يرجى اختيار أو تحديد المدينة / المحافظة.')
+      setSubmittingOrder(false)
+      return
+    }
+    if (!customer.district) {
+      setCheckoutError('يرجى كتابة اسم الحي أو المنطقة.')
+      setSubmittingOrder(false)
+      return
+    }
+    if (!customer.address) {
+      setCheckoutError('يرجى كتابة العنوان بالتفصيل وأقرب معلم مميز.')
+      setSubmittingOrder(false)
+      return
+    }
+
     try {
-      const number = await createOrder(customer, cart)
-      setOrderNumber(number)
+      try {
+        localStorage.setItem('alakayfak_saved_address', JSON.stringify(addressForm))
+      } catch {}
+
+      const number = await createOrder(customer, cart, notes)
+      const finalPriceFormatted = formatPrice(
+        subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee)
+      )
+
+      setCompletedOrderInfo({
+        orderNumber: number,
+        customer,
+        notes,
+        items: [...cart],
+        totalFormatted: finalPriceFormatted,
+        totalAmount: subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee),
+        currency: selectedCurrency,
+      })
       setOrderComplete(true)
       setCart([])
     } catch (error) {
@@ -227,6 +346,35 @@ function App() {
     } finally {
       setSubmittingOrder(false)
     }
+  }
+
+  const cleanStoreWhatsapp = (settings.whatsapp || '').replace(/[^0-9]/g, '')
+  const getWhatsAppConfirmationUrl = () => {
+    if (!completedOrderInfo) return `https://wa.me/${cleanStoreWhatsapp}`
+    const itemsText = completedOrderInfo.items
+      .map((item) => `• ${item.product.name} (الكمية: ${item.quantity})`)
+      .join('\n')
+
+    const message = [
+      'مرحباً متجر على كيفك 👋',
+      `أرغب بتأكيد طلبي الجديد رقم: *${completedOrderInfo.orderNumber}*`,
+      '',
+      `👤 *الاسم:* ${completedOrderInfo.customer.fullName}`,
+      `📞 *رقم الجوال:* ${completedOrderInfo.customer.phone}`,
+      `📍 *العنوان:* ${completedOrderInfo.customer.city} - ${completedOrderInfo.customer.district} - ${completedOrderInfo.customer.address}`,
+      completedOrderInfo.notes ? `📝 *ملاحظات التوصيل:* ${completedOrderInfo.notes}` : '',
+      '',
+      `🛍️ *المنتجات المطلوبة:*`,
+      itemsText,
+      '',
+      `💰 *المبلغ المطلوب عند الاستلام:* ${completedOrderInfo.totalFormatted}`,
+      '',
+      '📍 سأشارك معكم موقعي الحالي (اللوكيشن) هنا في المحادثة لتسهيل وصول المندوب.',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    return `https://wa.me/${cleanStoreWhatsapp}?text=${encodeURIComponent(message)}`
   }
 
   return (
@@ -460,7 +608,289 @@ function App() {
 
       {quickView && <div className="modal-backdrop" onMouseDown={() => setQuickView(null)}><div className="product-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setQuickView(null)}><Icon name="close" /></button><div className="modal-image"><img src={quickView.image} alt={quickView.name} />{quickView.badge && <span>{quickView.badge}</span>}</div><div className="modal-content"><small>{quickView.categoryLabel}</small><h2>{quickView.name}</h2><div className="modal-price"><strong>{formatPrice(quickView.price)}</strong>{quickView.oldPrice && <del>{formatPrice(quickView.oldPrice)}</del>}</div><p>{quickView.description}</p><div className="modal-colors"><label>اختاري اللون</label><div>{(quickView.colors?.length ? quickView.colors : ['#deb0ad']).map((color, index) => <button key={color} className={selectedColor === color ? 'active' : ''} onClick={() => setSelectedColor(color)} style={{ background: color }} aria-label={`لون ${index + 1}`} />)}</div></div><div className="bag-features"><span><Icon name="check" size={15} /> حزام قابل للتعديل</span><span><Icon name="check" size={15} /> جيب داخلي منظّم</span></div><button className="modal-add" onClick={() => { addToCart(quickView, selectedColor); setQuickView(null); setCartOpen(true) }}>أضيفي للسلة — {formatPrice(quickView.price)} <Icon name="bag" size={18} /></button><small className="modal-delivery"><Icon name="truck" size={17} /> يصلكِ خلال 2–5 أيام عمل</small></div></div></div>}
 
-      {checkoutOpen && <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}><div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCheckoutOpen(false)}><Icon name="close" /></button>{orderComplete ? <div className="order-success"><span><Icon name="check" size={34} /></span><h2>تم استلام طلبك!</h2><p>رقم الطلب <strong>{orderNumber}</strong>. سنرسل تفاصيل الطلب والتوصيل إلى بريدك.</p><button onClick={() => setCheckoutOpen(false)}>العودة للمتجر</button></div> : <><div className="checkout-heading"><small>خطوة أخيرة</small><h2>بيانات التوصيل</h2><p>طلبك بقيمة <strong>{formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}</strong></p></div><form className="checkout-form" onSubmit={submitOrder}><label>الاسم الكامل<input name="fullName" required placeholder="مثال: سارة محمد" /></label><label>رقم الجوال<input name="phone" required inputMode="tel" placeholder="05xxxxxxxx" pattern="[0-9+ ]{8,}" /></label><label>البريد الإلكتروني<input name="email" required type="email" placeholder="name@example.com" /></label><div><label>المدينة<input name="city" required placeholder="الرياض" /></label><label>الحي<input name="district" required placeholder="اسم الحي" /></label></div><label>العنوان بالتفصيل<textarea name="address" required placeholder="الشارع، رقم المبنى، أقرب معلم" /></label>{checkoutError ? <small className="checkout-error">{checkoutError}</small> : null}<button type="submit" disabled={submittingOrder}>{submittingOrder ? 'جارٍ إرسال الطلب…' : `تأكيد الطلب — ${formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}`} {!submittingOrder ? <Icon name="check" size={18} /> : null}</button><small>لن يتم خصم أي مبلغ؛ الدفع عند الاستلام.</small></form></>}</div></div>}
+      {checkoutOpen && (
+        <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}>
+          <div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}>
+            <button
+              className="modal-close"
+              onClick={() => {
+                setCheckoutOpen(false)
+                if (orderComplete) {
+                  setOrderComplete(false)
+                  setCompletedOrderInfo(null)
+                }
+              }}
+              aria-label="إغلاق"
+            >
+              <Icon name="close" />
+            </button>
+
+            {orderComplete && completedOrderInfo ? (
+              <div className="order-success">
+                <span>
+                  <Icon name="check" size={36} />
+                </span>
+                <h2>تم استلام طلبك بنجاح! 🎉</h2>
+                <p style={{ maxWidth: '440px', margin: '0 auto 16px' }}>
+                  شكراً لتسوقك من متجر على كيفك. تم تسجيل طلبك برقم <strong>{completedOrderInfo.orderNumber}</strong>، وجارٍ تجهيزه للتوصيل.
+                </p>
+
+                {/* Delivery Address & Order Card */}
+                <div className="order-summary-box">
+                  <div className="summary-section-title">
+                    <Icon name="map-pin" size={16} />
+                    <span>تفاصيل عنوان التوصيل المسجل</span>
+                  </div>
+                  <div className="summary-details-grid">
+                    <div>
+                      <small>المستلم:</small>
+                      <strong>{completedOrderInfo.customer.fullName}</strong>
+                    </div>
+                    <div>
+                      <small>رقم الجوال:</small>
+                      <strong>{completedOrderInfo.customer.phone}</strong>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <small>عنوان التوصيل:</small>
+                      <p style={{ margin: '3px 0 0', fontWeight: 600 }}>
+                        {completedOrderInfo.customer.city} · {completedOrderInfo.customer.district} · {completedOrderInfo.customer.address}
+                      </p>
+                    </div>
+                    {completedOrderInfo.notes ? (
+                      <div
+                        style={{
+                          gridColumn: '1 / -1',
+                          background: '#fdf9ee',
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #f6e6bd',
+                        }}
+                      >
+                        <small style={{ color: '#92400e' }}>ملاحظات للمندوب:</small>
+                        <p style={{ margin: '2px 0 0', color: '#78350f', fontSize: '12px' }}>
+                          {completedOrderInfo.notes}
+                        </p>
+                      </div>
+                    ) : null}
+                    <div
+                      style={{
+                        gridColumn: '1 / -1',
+                        borderTop: '1px dashed #e4dfea',
+                        paddingTop: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <small>المبلغ المطلوب تحصيله:</small>
+                      <strong style={{ fontSize: '16px', color: '#173b37' }}>
+                        {completedOrderInfo.totalFormatted} (الدفع عند الاستلام)
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* WhatsApp Action Button */}
+                <div style={{ display: 'grid', gap: '9px', width: '100%', maxWidth: '380px', marginTop: '16px' }}>
+                  <a
+                    href={getWhatsAppConfirmationUrl()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="whatsapp-order-btn"
+                  >
+                    <Icon name="whatsapp" size={20} />
+                    <span>تأكيد الطلب ومشاركة اللوكيشن عبر واتساب</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    className="continue-shopping-btn"
+                    onClick={() => {
+                      setCheckoutOpen(false)
+                      setOrderComplete(false)
+                      setCompletedOrderInfo(null)
+                    }}
+                  >
+                    العودة للمتجر ومتابعة التسوق
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="checkout-heading">
+                  <small>خطوة أخيرة لتأكيد طلبك</small>
+                  <h2>بيانات التوصيل والعنوان</h2>
+                  <p>أدخلي بيانات عنوانك بدقة ليصل المندوب إلى باب منزلك في أسرع وقت.</p>
+                </div>
+
+                {/* Mini Order recap */}
+                <div className="checkout-cart-recap">
+                  <div className="recap-header">
+                    <span>محتويات طلبك ({cartCount} قطع)</span>
+                    <strong>{formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}</strong>
+                  </div>
+                  <div className="recap-items-scroll">
+                    {cart.map((item, idx) => (
+                      <div key={`${item.product.id}-${item.color}-${idx}`} className="recap-item">
+                        <img src={item.product.image} alt="" />
+                        <div>
+                          <strong>{item.product.name}</strong>
+                          <small>
+                            العدد: {item.quantity} · <i style={{ background: item.color }} />
+                          </small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <form className="checkout-form" onSubmit={submitOrder}>
+                  {/* Step 1: Customer Contact */}
+                  <div className="form-subheading">
+                    <Icon name="user" size={16} />
+                    <span>بيانات المستلم والتواصل</span>
+                  </div>
+
+                  <div className="fields-grid-2">
+                    <label>
+                      الاسم الكامل <span className="req">*</span>
+                      <input
+                        name="fullName"
+                        required
+                        value={addressForm.fullName}
+                        onChange={(e) => setAddressForm({ ...addressForm, fullName: e.target.value })}
+                        placeholder="مثال: ريم أحمد صالح"
+                      />
+                    </label>
+
+                    <label>
+                      رقم الجوال أو الواتساب <span className="req">*</span>
+                      <input
+                        name="phone"
+                        required
+                        type="tel"
+                        inputMode="tel"
+                        value={addressForm.phone}
+                        onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
+                        placeholder="مثال: 771234567 أو 05xxxxxxxx"
+                      />
+                    </label>
+                  </div>
+
+                  <label>
+                    البريد الإلكتروني <span className="opt">(اختياري لاستلام الفاتورة)</span>
+                    <input
+                      name="email"
+                      type="email"
+                      value={addressForm.email}
+                      onChange={(e) => setAddressForm({ ...addressForm, email: e.target.value })}
+                      placeholder="name@example.com"
+                    />
+                  </label>
+
+                  {/* Step 2: Delivery Address */}
+                  <div className="form-subheading" style={{ marginTop: '8px' }}>
+                    <Icon name="map-pin" size={16} />
+                    <span>عنوان التوصيل بالتفصيل</span>
+                  </div>
+
+                  {/* Quick City Selection Chips */}
+                  <div className="city-quick-picks">
+                    <span className="quick-label">اختيار سريع:</span>
+                    {POPULAR_CITY_CHIPS.map((chipCity) => (
+                      <button
+                        type="button"
+                        key={chipCity}
+                        className={addressForm.city === chipCity ? 'active' : ''}
+                        onClick={() => setAddressForm({ ...addressForm, city: chipCity })}
+                      >
+                        {chipCity}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="fields-grid-2">
+                    <label>
+                      المحافظة / المدينة <span className="req">*</span>
+                      <input
+                        name="city"
+                        list="city-options-list"
+                        required
+                        value={addressForm.city}
+                        onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                        placeholder="اكتبي أو اختاري المدينة..."
+                      />
+                      <datalist id="city-options-list">
+                        {ALL_CITIES_LIST.map((cityOption) => (
+                          <option key={cityOption} value={cityOption} />
+                        ))}
+                      </datalist>
+                    </label>
+
+                    <label>
+                      المنطقة / الحي <span className="req">*</span>
+                      <input
+                        name="district"
+                        required
+                        value={addressForm.district}
+                        onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })}
+                        placeholder="مثال: حي حدة، المعلا، العليا..."
+                      />
+                    </label>
+                  </div>
+
+                  <label>
+                    العنوان التفصيلي وأقرب معلم مميز <span className="req">*</span>
+                    <textarea
+                      name="address"
+                      required
+                      rows={2}
+                      value={addressForm.address}
+                      onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
+                      placeholder="اسم الشارع، رقم العمارة أو المنزل، الدور، أو بجوار معلم معروف (مثال: شارع الخمسين - عمارة الأمل - بجوار جامع...)"
+                    />
+                  </label>
+
+                  <label>
+                    ملاحظات إضافية للمندوب أو أوقات التوصيل <span className="opt">(اختياري)</span>
+                    <input
+                      name="notes"
+                      value={addressForm.notes}
+                      onChange={(e) => setAddressForm({ ...addressForm, notes: e.target.value })}
+                      placeholder="مثال: الاتصال قبل الوصول بنصف ساعة، التوصيل في الفترة المسائية..."
+                    />
+                  </label>
+
+                  {/* COD Assurance */}
+                  <div className="cod-badge">
+                    <span className="cod-icon">💵</span>
+                    <div>
+                      <strong>الدفع عند الاستلام (Cash on Delivery)</strong>
+                      <p>لن يتم سحب أي مبالغ الآن؛ تدفعين فقط عند وصول المندوب ومعاينة الحقيبة بنفسك.</p>
+                    </div>
+                  </div>
+
+                  {checkoutError ? <div className="checkout-error-box">{checkoutError}</div> : null}
+
+                  <button type="submit" className="checkout-submit-btn" disabled={submittingOrder}>
+                    {submittingOrder ? (
+                      'جارٍ تسجيل طلبك وتجهيزه…'
+                    ) : (
+                      <>
+                        <span>
+                          تأكيد الطلب —{' '}
+                          {formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}
+                        </span>
+                        <Icon name="check" size={18} />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {toast && <div className="toast"><span><Icon name="check" size={16} /></span>{toast}</div>}
     </div>

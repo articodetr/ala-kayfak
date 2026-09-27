@@ -586,7 +586,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             p_customer: {
               full_name: customer.fullName,
               phone: customer.phone,
-              email: customer.email,
+              email: customer.email || '',
               city: customer.city,
               district: customer.district,
               address: customer.address,
