@@ -8,10 +8,10 @@ type DbCategory = { id: string; slug: string; label: string; subtitle: string | 
 type DbProduct = { id: string; name: string; slug: string; category_id: string; price: number | string; compare_at_price: number | string | null; image_url: string | null; badge: string | null; colors: string[] | null; description: string | null; stock_quantity: number; sales_count: number; featured: boolean; is_active: boolean; created_at: string }
 
 const STORAGE_KEYS = {
-  ALL_PRODUCTS: 'alakayfak_products_cache_v3',
-  CUSTOM_PRODUCTS: 'alakayfak_custom_products_v3',
-  ORDERS: 'alakayfak_orders_cache_v3',
-  SETTINGS: 'alakayfak_settings_cache_v3',
+  ALL_PRODUCTS: 'alakayfak_products_cache_v4',
+  CUSTOM_PRODUCTS: 'alakayfak_custom_products_v4',
+  ORDERS: 'alakayfak_orders_cache_v4',
+  SETTINGS: 'alakayfak_settings_cache_v4',
 }
 
 const BROADCAST_CHANNEL_NAME = 'alakayfak_store_sync_channel'
@@ -80,7 +80,7 @@ const mapOrder = (row: Record<string, unknown>): Order => ({
 
 const getCustomProductsFromStorage = (): Product[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CUSTOM_PRODUCTS)
+    const raw = localStorage.getItem(STORAGE_KEYS.CUSTOM_PRODUCTS) || localStorage.getItem('alakayfak_custom_products_v3')
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
@@ -146,7 +146,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  const [settings, setSettings] = useState<StoreSettings>(initialSettings)
+  const [settings, setSettings] = useState<StoreSettings>(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.SETTINGS)
+      if (cached) {
+        return { ...initialSettings, ...JSON.parse(cached) }
+      }
+    } catch {}
+    return initialSettings
+  })
   const [loading, setLoading] = useState(true)
   const [usingFallbackData, setUsingFallbackData] = useState(!isSupabaseConfigured)
 
@@ -223,17 +231,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (settingsResult.data) {
         const row = settingsResult.data
+        const cached = localStorage.getItem(STORAGE_KEYS.SETTINGS)
+        const local = cached ? JSON.parse(cached) : null
         setSettings({
-          storeName: row.store_name,
-          phone: row.phone,
-          whatsapp: row.whatsapp,
-          email: row.email,
-          instagram: row.instagram,
-          currency: row.currency,
-          shippingFee: Number(row.shipping_fee),
-          freeShippingThreshold: Number(row.free_shipping_threshold),
-          bannerDiscount: row.banner_discount,
-          bannerTitle: row.banner_title,
+          storeName: local?.storeName || row.store_name,
+          phone: local?.phone || row.phone,
+          whatsapp: local?.whatsapp || row.whatsapp,
+          email: local?.email || row.email,
+          instagram: local?.instagram || row.instagram,
+          currency: local?.currency || 'ر.ي',
+          exchangeRateYer: local?.exchangeRateYer || 430,
+          exchangeRateUsdYer: local?.exchangeRateUsdYer || 1650,
+          exchangeRateUsdSar: local?.exchangeRateUsdSar || 3.75,
+          shippingFee: Number(local?.shippingFee ?? row.shipping_fee ?? 3000),
+          freeShippingThreshold: Number(local?.freeShippingThreshold ?? row.free_shipping_threshold ?? 50000),
+          bannerDiscount: local?.bannerDiscount || row.banner_discount,
+          bannerTitle: local?.bannerTitle || row.banner_title,
         })
       }
       setUsingFallbackData(false)

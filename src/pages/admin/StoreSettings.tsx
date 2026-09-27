@@ -60,13 +60,14 @@ export default function StoreSettings() {
                 onChange={(e) => update('currency', e.target.value)}
                 style={{ fontWeight: 700 }}
               >
+                <option value="ر.ي">🇾🇪 ريال يمني (ر.ي) — الافتراضي</option>
                 <option value="ر.س">🇸🇦 ريال سعودي (ر.س)</option>
-                <option value="ر.ي">🇾🇪 ريال يمني (ر.ي)</option>
+                <option value="$">🇺🇸 دولار أمريكي ($ / USD)</option>
               </select>
             </label>
 
             <label>
-              سعر الصرف (1 ريال سعودي مقابل الريال اليمني)
+              سعر صرف الريال السعودي (1 ر.س مقابل الريال اليمني)
               <input
                 type="number"
                 min="1"
@@ -76,10 +77,34 @@ export default function StoreSettings() {
                 placeholder="430"
               />
             </label>
+
+            <label>
+              سعر صرف الدولار (1 $ مقابل الريال اليمني)
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={draft.exchangeRateUsdYer || 1650}
+                onChange={(e) => update('exchangeRateUsdYer', Number(e.target.value))}
+                placeholder="1650"
+              />
+            </label>
+
+            <label>
+              سعر صرف الدولار مقابل السعودي (1 $ = ر.س)
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={draft.exchangeRateUsdSar || 3.75}
+                onChange={(e) => update('exchangeRateUsdSar', Number(e.target.value))}
+                placeholder="3.75"
+              />
+            </label>
           </div>
           <p style={{ margin: '10px 0 0', fontSize: '12px', color: 'var(--admin-muted)' }}>
-            💡 تتيح هذه الإعدادات لزوار المتجر التبديل بين <strong>الريال السعودي 🇸🇦</strong> و{' '}
-            <strong>الريال اليمني 🇾🇪</strong> في المتجر مع تحويل الأسعار تلقائياً.
+            💡 تتيح هذه الإعدادات للمتجر والعملاء الاختيار والتحويل الفوري بين <strong>الريال اليمني 🇾🇪</strong> (الافتراضي)،{' '}
+            <strong>الريال السعودي 🇸🇦</strong>، و<strong>الدولار الأمريكي 🇺🇸</strong> مع تحويل الأسعار بدقة.
           </p>
         </section>
 

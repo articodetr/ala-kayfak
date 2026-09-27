@@ -105,38 +105,70 @@ function App() {
     })
   }, [activeCategory, search, products])
 
-  const [selectedCurrency, setSelectedCurrency] = useState<'ر.س' | 'ر.ي'>(() => {
-    return settings.currency === 'ر.ي' ? 'ر.ي' : 'ر.س'
+  const [selectedCurrency, setSelectedCurrency] = useState<'ر.ي' | 'ر.س' | '$'>(() => {
+    if (settings.currency === '$') return '$'
+    if (settings.currency === 'ر.س') return 'ر.س'
+    return 'ر.ي'
   })
 
   useEffect(() => {
-    if (settings.currency === 'ر.ي' || settings.currency === 'ر.س') {
-      setSelectedCurrency(settings.currency as 'ر.س' | 'ر.ي')
+    if (settings.currency === '$' || settings.currency === 'ر.س' || settings.currency === 'ر.ي') {
+      setSelectedCurrency(settings.currency as 'ر.ي' | 'ر.س' | '$')
     }
   }, [settings.currency])
 
-  const exchangeRate = settings.exchangeRateYer || 430
+  const rateSarToYer = settings.exchangeRateYer || 430
+  const rateUsdToYer = settings.exchangeRateUsdYer || 1650
+  const rateUsdToSar = settings.exchangeRateUsdSar || 3.75
 
   const convertAmount = useCallback(
     (amountInBase: number): number => {
-      if (settings.currency === 'ر.ي') {
+      const base = settings.currency || 'ر.ي'
+
+      // 1. Base is Yemeni Rial (ر.ي)
+      if (base === 'ر.ي') {
         if (selectedCurrency === 'ر.س') {
-          return Math.round(amountInBase / exchangeRate)
+          return Math.round(amountInBase / rateSarToYer)
         }
-        return amountInBase
-      } else {
-        if (selectedCurrency === 'ر.ي') {
-          return Math.round(amountInBase * exchangeRate)
+        if (selectedCurrency === '$') {
+          return Math.round((amountInBase / rateUsdToYer) * 10) / 10
         }
         return amountInBase
       }
+
+      // 2. Base is Saudi Rial (ر.س)
+      if (base === 'ر.س') {
+        if (selectedCurrency === 'ر.ي') {
+          return Math.round(amountInBase * rateSarToYer)
+        }
+        if (selectedCurrency === '$') {
+          return Math.round((amountInBase / rateUsdToSar) * 10) / 10
+        }
+        return amountInBase
+      }
+
+      // 3. Base is Dollar ($)
+      if (base === '$') {
+        if (selectedCurrency === 'ر.ي') {
+          return Math.round(amountInBase * rateUsdToYer)
+        }
+        if (selectedCurrency === 'ر.س') {
+          return Math.round(amountInBase * rateUsdToSar)
+        }
+        return amountInBase
+      }
+
+      return amountInBase
     },
-    [settings.currency, selectedCurrency, exchangeRate]
+    [settings.currency, selectedCurrency, rateSarToYer, rateUsdToYer, rateUsdToSar]
   )
 
   const formatPrice = useCallback(
     (amountInBase: number): string => {
       const converted = convertAmount(amountInBase)
+      if (selectedCurrency === '$') {
+        return `$${converted.toLocaleString('en-US')}`
+      }
       return `${converted.toLocaleString('en-US')} ${selectedCurrency}`
     },
     [convertAmount, selectedCurrency]
@@ -203,7 +235,24 @@ function App() {
         <div className="page-shell">
           <div className="welcome">أهلاً بكِ! <button onClick={() => setToast('سيتم ربط صفحة تسجيل الدخول')}>تسجيل الدخول</button> <span>أو</span> <button onClick={() => setToast('سيتم ربط صفحة إنشاء الحساب')}>إنشاء حساب</button><span className="utility-extra">العروض اليومية</span><span className="utility-extra">المساعدة والتواصل</span></div>
           <div className="utility-links" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="currency-selector" style={{ display: 'inline-flex', alignItems: 'center', background: '#eae5f5', padding: '2px 4px', borderRadius: '14px', gap: '4px' }}>
+            <div className="currency-selector" style={{ display: 'inline-flex', alignItems: 'center', background: '#eae5f5', padding: '2px 4px', borderRadius: '14px', gap: '3px' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCurrency('ر.ي')}
+                style={{
+                  border: 'none',
+                  background: selectedCurrency === 'ر.ي' ? '#7565aa' : 'transparent',
+                  color: selectedCurrency === 'ر.ي' ? '#fff' : '#444',
+                  padding: '2px 7px',
+                  borderRadius: '10px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🇾🇪 ر.ي
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedCurrency('ر.س')}
@@ -211,9 +260,9 @@ function App() {
                   border: 'none',
                   background: selectedCurrency === 'ر.س' ? '#7565aa' : 'transparent',
                   color: selectedCurrency === 'ر.س' ? '#fff' : '#444',
-                  padding: '2px 8px',
+                  padding: '2px 7px',
                   borderRadius: '10px',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s'
@@ -223,20 +272,20 @@ function App() {
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedCurrency('ر.ي')}
+                onClick={() => setSelectedCurrency('$')}
                 style={{
                   border: 'none',
-                  background: selectedCurrency === 'ر.ي' ? '#7565aa' : 'transparent',
-                  color: selectedCurrency === 'ر.ي' ? '#fff' : '#444',
-                  padding: '2px 8px',
+                  background: selectedCurrency === '$' ? '#7565aa' : 'transparent',
+                  color: selectedCurrency === '$' ? '#fff' : '#444',
+                  padding: '2px 7px',
                   borderRadius: '10px',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
               >
-                🇾🇪 ر.ي
+                🇺🇸 $
               </button>
             </div>
             <a href="/admin" className="sell-link" style={{ background: '#7565aa', color: 'white', textDecoration: 'none', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>لوحة التحكم ⚙️</a>
@@ -351,35 +400,51 @@ function App() {
           <div style={{ display: 'inline-flex', background: '#eae5f5', padding: '3px', borderRadius: '12px', gap: '4px' }}>
             <button
               type="button"
-              onClick={() => setSelectedCurrency('ر.س')}
-              style={{
-                border: 'none',
-                background: selectedCurrency === 'ر.س' ? '#7565aa' : 'transparent',
-                color: selectedCurrency === 'ر.س' ? '#fff' : '#444',
-                padding: '4px 10px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              🇸🇦 ر.س
-            </button>
-            <button
-              type="button"
               onClick={() => setSelectedCurrency('ر.ي')}
               style={{
                 border: 'none',
                 background: selectedCurrency === 'ر.ي' ? '#7565aa' : 'transparent',
                 color: selectedCurrency === 'ر.ي' ? '#fff' : '#444',
-                padding: '4px 10px',
+                padding: '4px 8px',
                 borderRadius: '8px',
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
             >
-              🇾🇪 ر.ي
+              🇾🇪 ريال يمني
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCurrency('ر.س')}
+              style={{
+                border: 'none',
+                background: selectedCurrency === 'ر.س' ? '#7565aa' : 'transparent',
+                color: selectedCurrency === 'ر.س' ? '#fff' : '#444',
+                padding: '4px 8px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇸🇦 ريال سعودي
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCurrency('$')}
+              style={{
+                border: 'none',
+                background: selectedCurrency === '$' ? '#7565aa' : 'transparent',
+                color: selectedCurrency === '$' ? '#fff' : '#444',
+                padding: '4px 8px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇺🇸 دولار ($)
             </button>
           </div>
         </div>

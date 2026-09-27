@@ -35,7 +35,7 @@ const emptyProduct: ProductInput = {
 }
 
 export default function ProductsManager() {
-  const { products, categories, saveProduct, updateProductPrice, deleteProduct, settings } = useStore()
+  const { products, categories, saveProduct, updateProductPrice, deleteProduct, settings, saveSettings } = useStore()
   const [query, setQuery] = useState('')
   const [draft, setDraft] = useState<ProductInput | null>(null)
   const [imageFile, setImageFile] = useState<File | undefined>()
@@ -54,7 +54,8 @@ export default function ProductsManager() {
   )
 
   const openAddModal = () => {
-    setDraft({ ...emptyProduct, categoryId: categories[0]?.id || '' })
+    const defaultPrice = settings.currency === 'ر.ي' ? 55000 : settings.currency === '$' ? 45 : 199
+    setDraft({ ...emptyProduct, price: defaultPrice, categoryId: categories[0]?.id || '' })
     setImageFile(undefined)
     setPreviewUrl('/products/bag-blush.png')
     setMessage('')
@@ -171,9 +172,62 @@ export default function ProductsManager() {
           <h1>إدارة المنتجات والأسعار</h1>
           <p>{products.length} حقائب متوفرة في المتجر</p>
         </div>
-        <button className="primary-action" onClick={openAddModal}>
-          <Plus size={18} /> إضافة حقيبة جديدة
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--admin-card-bg)', padding: '4px 8px', borderRadius: '10px', border: '1px solid var(--admin-border)' }}>
+            <span style={{ fontSize: '12px', color: 'var(--admin-muted)', fontWeight: 600 }}>العملة:</span>
+            <button
+              type="button"
+              onClick={() => void saveSettings({ ...settings, currency: 'ر.ي' })}
+              style={{
+                border: 'none',
+                background: settings.currency === 'ر.ي' ? '#7565aa' : 'transparent',
+                color: settings.currency === 'ر.ي' ? '#fff' : 'inherit',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇾🇪 ر.ي
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveSettings({ ...settings, currency: 'ر.س' })}
+              style={{
+                border: 'none',
+                background: settings.currency === 'ر.س' ? '#7565aa' : 'transparent',
+                color: settings.currency === 'ر.س' ? '#fff' : 'inherit',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇸🇦 ر.س
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveSettings({ ...settings, currency: '$' })}
+              style={{
+                border: 'none',
+                background: settings.currency === '$' ? '#7565aa' : 'transparent',
+                color: settings.currency === '$' ? '#fff' : 'inherit',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇺🇸 $
+            </button>
+          </div>
+          <button className="primary-action" onClick={openAddModal}>
+            <Plus size={18} /> إضافة حقيبة جديدة
+          </button>
+        </div>
       </div>
 
       {message ? <div className="admin-notice">{message}</div> : null}
@@ -543,12 +597,69 @@ export default function ProductsManager() {
                   </select>
                 </label>
 
+                <div style={{ gridColumn: '1 / -1', background: '#f6f4fa', padding: '10px 14px', borderRadius: '8px', border: '1px solid #ebe5f5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#4d3f6d' }}>
+                    عملة تسعير الحقيبة: <strong style={{ color: '#7565aa' }}>{settings.currency === '$' ? 'دولار أمريكي ($)' : settings.currency === 'ر.س' ? 'ريال سعودي (ر.س)' : 'ريال يمني (ر.ي)'}</strong>
+                  </span>
+                  <div style={{ display: 'inline-flex', background: '#e9e4f5', padding: '3px', borderRadius: '8px', gap: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => void saveSettings({ ...settings, currency: 'ر.ي' })}
+                      style={{
+                        border: 'none',
+                        background: settings.currency === 'ر.ي' ? '#7565aa' : 'transparent',
+                        color: settings.currency === 'ر.ي' ? '#fff' : '#444',
+                        padding: '4px 9px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🇾🇪 ريال يمني (ر.ي)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveSettings({ ...settings, currency: 'ر.س' })}
+                      style={{
+                        border: 'none',
+                        background: settings.currency === 'ر.س' ? '#7565aa' : 'transparent',
+                        color: settings.currency === 'ر.س' ? '#fff' : '#444',
+                        padding: '4px 9px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🇸🇦 ريال سعودي (ر.س)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void saveSettings({ ...settings, currency: '$' })}
+                      style={{
+                        border: 'none',
+                        background: settings.currency === '$' ? '#7565aa' : 'transparent',
+                        color: settings.currency === '$' ? '#fff' : '#444',
+                        padding: '4px 9px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🇺🇸 دولار ($)
+                    </button>
+                  </div>
+                </div>
+
                 <label>
                   سعر البيع ({settings.currency}) *
                   <input
                     type="number"
                     min="1"
-                    step="0.5"
+                    step={settings.currency === '$' ? '0.1' : '1'}
+                    placeholder={settings.currency === 'ر.ي' ? 'مثال: 55000' : settings.currency === '$' ? 'مثال: 45' : 'مثال: 199'}
                     value={draft.price}
                     onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
                     required
@@ -560,8 +671,8 @@ export default function ProductsManager() {
                   <input
                     type="number"
                     min="0"
-                    step="0.5"
-                    placeholder="مثال: 250"
+                    step={settings.currency === '$' ? '0.1' : '1'}
+                    placeholder={settings.currency === 'ر.ي' ? 'مثال: 68000' : settings.currency === '$' ? 'مثال: 55' : 'مثال: 250'}
                     value={draft.oldPrice || ''}
                     onChange={(e) =>
                       setDraft({ ...draft, oldPrice: Number(e.target.value) || undefined })
