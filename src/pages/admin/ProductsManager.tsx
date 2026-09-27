@@ -10,6 +10,8 @@ import {
   Check,
   TrendingDown,
   Upload,
+  Palette,
+  Pipette,
 } from 'lucide-react'
 import { useStore } from '../../context'
 import type { Product, ProductInput } from '../../types'
@@ -19,6 +21,21 @@ const PRESET_IMAGES = [
   { label: 'لافندر هادئ', path: '/products/bag-lavender.png' },
   { label: 'أخضر ميرمية', path: '/products/bag-sage.png' },
   { label: 'مناسبات عاجي', path: '/products/bag-evening.png' },
+]
+
+const BAG_COLOR_PALETTE = [
+  { label: 'أسود كلاسيكي', hex: '#1c1a1f' },
+  { label: 'بيج نيود', hex: '#d8caa8' },
+  { label: 'وردي بلش', hex: '#deb0ad' },
+  { label: 'كافيه / جملي', hex: '#8c6239' },
+  { label: 'بني داكن', hex: '#4a2e1b' },
+  { label: 'أخضر ميرمية', hex: '#9ba98e' },
+  { label: 'لافندر ناعم', hex: '#aa95c1' },
+  { label: 'أبيض عاجي', hex: '#f7f4ed' },
+  { label: 'مارون / عودي', hex: '#6d1f2d' },
+  { label: 'كحلي ملكي', hex: '#1b2a47' },
+  { label: 'ذهبي ناعم', hex: '#d4af37' },
+  { label: 'رمادي فضي', hex: '#c0c0c0' },
 ]
 
 const emptyProduct: ProductInput = {
@@ -100,6 +117,34 @@ export default function ProductsManager() {
     if (draft) {
       setDraft({ ...draft, image: path })
     }
+  }
+
+  const toggleColor = (hex: string) => {
+    if (!draft) return
+    const current = draft.colors || []
+    const normalized = hex.toLowerCase()
+    if (current.some((c) => c.toLowerCase() === normalized)) {
+      if (current.length === 1) return // keep at least 1 color
+      setDraft({ ...draft, colors: current.filter((c) => c.toLowerCase() !== normalized) })
+    } else {
+      setDraft({ ...draft, colors: [...current, hex] })
+    }
+  }
+
+  const addCustomColor = (hex: string) => {
+    if (!draft || !hex) return
+    const current = draft.colors || []
+    const normalized = hex.toLowerCase()
+    if (!current.some((c) => c.toLowerCase() === normalized)) {
+      setDraft({ ...draft, colors: [...current, hex] })
+    }
+  }
+
+  const removeColor = (hex: string) => {
+    if (!draft) return
+    const current = draft.colors || []
+    if (current.length <= 1) return
+    setDraft({ ...draft, colors: current.filter((c) => c.toLowerCase() !== hex.toLowerCase()) })
   }
 
   const submit = async (event: FormEvent) => {
@@ -702,23 +747,252 @@ export default function ProductsManager() {
                   />
                 </label>
 
-                <label style={{ gridColumn: 'span 2' }}>
-                  أكواد الألوان المتوفرة (مفصولة بفاصلة)
-                  <input
-                    dir="ltr"
-                    value={draft.colors.join(', ')}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        colors: e.target.value
-                          .split(',')
-                          .map((v) => v.trim())
-                          .filter(Boolean),
+                <div
+                  style={{
+                    gridColumn: 'span 2',
+                    background: '#fcfbfe',
+                    border: '1px solid #ebe5f3',
+                    borderRadius: '12px',
+                    padding: '14px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    <label
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        color: '#443b52',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Palette size={17} color="#7565aa" /> ألوان الحقيبة المتوفرة (اختاري بالنقر المباشر) *
+                    </label>
+                    <span style={{ fontSize: '12px', color: 'var(--admin-muted)' }}>
+                      {draft.colors?.length || 0} ألوان محددة
+                    </span>
+                  </div>
+
+                  {/* Current Selected Color Chips with Remove Buttons */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      marginBottom: '12px',
+                      padding: '8px 10px',
+                      background: 'white',
+                      border: '1px dashed #dcd4e8',
+                      borderRadius: '10px',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', color: '#7a7285', fontWeight: 600 }}>
+                      المحددة للحقيبة:
+                    </span>
+                    {draft.colors && draft.colors.length > 0 ? (
+                      draft.colors.map((c) => {
+                        const found = BAG_COLOR_PALETTE.find(
+                          (p) => p.hex.toLowerCase() === c.toLowerCase()
+                        )
+                        return (
+                          <span
+                            key={c}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: '#f4f1f8',
+                              border: '1px solid #ded6eb',
+                              borderRadius: '20px',
+                              padding: '3px 8px 3px 6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: '#3d344d',
+                            }}
+                          >
+                            <i
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                background: c,
+                                border: '1px solid rgba(0,0,0,0.15)',
+                                display: 'inline-block',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              }}
+                            />
+                            <span>{found ? found.label : c}</span>
+                            {draft.colors.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeColor(c)}
+                                style={{
+                                  border: 0,
+                                  background: '#e4dceb',
+                                  color: '#6e647c',
+                                  borderRadius: '50%',
+                                  width: '16px',
+                                  height: '16px',
+                                  display: 'grid',
+                                  placeItems: 'center',
+                                  cursor: 'pointer',
+                                  fontSize: '10px',
+                                  fontWeight: 900,
+                                  padding: 0,
+                                  lineHeight: 1,
+                                }}
+                                title="إزالة هذا اللون"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </span>
+                        )
                       })
-                    }
-                    placeholder="#deb0ad, #2d2b2d, #d8d1bd"
-                  />
-                </label>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#a39bac' }}>
+                        انقري على أي لون من الخيارات أدناه لإضافته
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Preset Bag Colors Grid */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--admin-muted)',
+                        display: 'block',
+                        marginBottom: '6px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      أشهر ألوان الحقائب (انقري على اللون لاختياره أو إزالته):
+                    </span>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(125px, 1fr))',
+                        gap: '8px',
+                      }}
+                    >
+                      {BAG_COLOR_PALETTE.map((item) => {
+                        const isSelected = draft.colors?.some(
+                          (c) => c.toLowerCase() === item.hex.toLowerCase()
+                        )
+                        return (
+                          <button
+                            type="button"
+                            key={item.hex}
+                            onClick={() => toggleColor(item.hex)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '6px 10px',
+                              background: isSelected ? '#ede8f7' : 'white',
+                              border: `2px solid ${isSelected ? '#7565aa' : '#e6e1ee'}`,
+                              borderRadius: '10px',
+                              cursor: 'pointer',
+                              textAlign: 'right',
+                              transition: 'all 0.15s ease',
+                              boxShadow: isSelected ? '0 2px 6px rgba(117,101,170,0.2)' : 'none',
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: '22px',
+                                height: '22px',
+                                borderRadius: '50%',
+                                background: item.hex,
+                                border: '1px solid rgba(0,0,0,0.15)',
+                                display: 'grid',
+                                placeItems: 'center',
+                                flexShrink: 0,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+                              }}
+                            >
+                              {isSelected && (
+                                <Check
+                                  size={13}
+                                  color={item.hex === '#f7f4ed' ? '#333' : '#fff'}
+                                  strokeWidth={3}
+                                />
+                              )}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: isSelected ? 800 : 600,
+                                color: isSelected ? '#544777' : '#494056',
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Color Picker Input */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid #ebe5f3',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        background: 'white',
+                        border: '1px dashed #7565aa',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#7565aa',
+                        margin: 0,
+                      }}
+                    >
+                      <Pipette size={15} />
+                      <span>اختيار لون إضافي مخصص</span>
+                      <input
+                        type="color"
+                        onChange={(e) => addCustomColor(e.target.value)}
+                        style={{
+                          width: '0px',
+                          height: '0px',
+                          padding: 0,
+                          border: 0,
+                          opacity: 0,
+                          position: 'absolute',
+                        }}
+                      />
+                    </label>
+                    <span style={{ fontSize: '11px', color: 'var(--admin-muted)' }}>
+                      💡 يمكنكِ اختيار لون واحد أو عدة ألوان للحقيبة بنقرة واحدة بدون كتابة أي رموز.
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <label style={{ marginTop: '12px', display: 'block' }}>
