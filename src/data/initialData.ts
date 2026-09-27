@@ -19,4 +19,4 @@ export const initialProducts: Product[] = [
   { ...baseProduct, id: '20000000-0000-4000-8000-000000000008', slug: 'lujain-evening', name: 'حقيبة لُجين المسائية', categoryId: initialCategories[3].id, category: 'evening', categoryLabel: 'حقائب مناسبات', price: 215, oldPrice: 259, image: '/products/bag-evening.png', badge: 'كمية محدودة', colors: ['#e5ded1', '#c89b9e', '#aaa596'], description: 'حقيبة مسائية رقيقة بلمعة هادئة وسلسلة أنيقة، مثالية للدعوات والمناسبات.', stockQuantity: 6, salesCount: 9 },
 ]
 
-export const initialSettings: StoreSettings = { storeName: 'على كيفك', phone: '+966 50 000 0000', whatsapp: '966500000000', email: 'hello@alakayfak.com', instagram: 'https://instagram.com', currency: 'ر.س', shippingFee: 20, freeShippingThreshold: 350, bannerDiscount: 'خصم 25%', bannerTitle: 'على مختارات هذا الأسبوع' }
+export const initialSettings: StoreSettings = { storeName: 'على كيفك', phone: '+966 50 000 0000', whatsapp: '966500000000', email: 'hello@alakayfak.com', instagram: 'https://instagram.com', currency: 'ر.س', exchangeRateYer: 430, shippingFee: 20, freeShippingThreshold: 350, bannerDiscount: 'خصم 25%', bannerTitle: 'على مختارات هذا الأسبوع' }

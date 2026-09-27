@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import heroImage from './assets/hero-bags.png'
 import { useStore } from './context'
 import type { CartItem, CustomerInfo, Product } from './types'
@@ -94,11 +94,53 @@ function App() {
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase()
     return products.filter((product) => {
-      const matchesCategory = activeCategory === 'all' || product.category === activeCategory
-      const matchesSearch = !query || `${product.name} ${product.categoryLabel}`.toLowerCase().includes(query)
+      const matchesCategory =
+        activeCategory === 'all' ||
+        product.category === activeCategory ||
+        product.categoryId === activeCategory ||
+        product.categoryLabel === activeCategory
+      const matchesSearch =
+        !query || `${product.name} ${product.categoryLabel}`.toLowerCase().includes(query)
       return matchesCategory && matchesSearch
     })
   }, [activeCategory, search, products])
+
+  const [selectedCurrency, setSelectedCurrency] = useState<'ر.س' | 'ر.ي'>(() => {
+    return settings.currency === 'ر.ي' ? 'ر.ي' : 'ر.س'
+  })
+
+  useEffect(() => {
+    if (settings.currency === 'ر.ي' || settings.currency === 'ر.س') {
+      setSelectedCurrency(settings.currency as 'ر.س' | 'ر.ي')
+    }
+  }, [settings.currency])
+
+  const exchangeRate = settings.exchangeRateYer || 430
+
+  const convertAmount = useCallback(
+    (amountInBase: number): number => {
+      if (settings.currency === 'ر.ي') {
+        if (selectedCurrency === 'ر.س') {
+          return Math.round(amountInBase / exchangeRate)
+        }
+        return amountInBase
+      } else {
+        if (selectedCurrency === 'ر.ي') {
+          return Math.round(amountInBase * exchangeRate)
+        }
+        return amountInBase
+      }
+    },
+    [settings.currency, selectedCurrency, exchangeRate]
+  )
+
+  const formatPrice = useCallback(
+    (amountInBase: number): string => {
+      const converted = convertAmount(amountInBase)
+      return `${converted.toLocaleString('en-US')} ${selectedCurrency}`
+    },
+    [convertAmount, selectedCurrency]
+  )
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
@@ -114,7 +156,7 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const addToCart = (product: Product, color = product.colors[0]) => {
+  const addToCart = (product: Product, color = (product.colors && product.colors.length ? product.colors[0] : '#deb0ad')) => {
     setCart((current) => {
       const existing = current.find((item) => item.product.id === product.id && item.color === color)
       if (existing) return current.map((item) => item === existing ? { ...item, quantity: item.quantity + 1 } : item)
@@ -160,7 +202,48 @@ function App() {
       <div className="utility-bar">
         <div className="page-shell">
           <div className="welcome">أهلاً بكِ! <button onClick={() => setToast('سيتم ربط صفحة تسجيل الدخول')}>تسجيل الدخول</button> <span>أو</span> <button onClick={() => setToast('سيتم ربط صفحة إنشاء الحساب')}>إنشاء حساب</button><span className="utility-extra">العروض اليومية</span><span className="utility-extra">المساعدة والتواصل</span></div>
-          <div className="utility-links"><button className="sell-link" onClick={() => setToast('سيتم ربط نموذج بيع الحقيبة')}>بيعي معنا</button><button onClick={() => setToast(`لديكِ ${favorites.length} في المفضلة`)}>قائمة المتابعة</button><button onClick={() => setCartOpen(true)}>مشترياتي</button></div>
+          <div className="utility-links" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="currency-selector" style={{ display: 'inline-flex', alignItems: 'center', background: '#eae5f5', padding: '2px 4px', borderRadius: '14px', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedCurrency('ر.س')}
+                style={{
+                  border: 'none',
+                  background: selectedCurrency === 'ر.س' ? '#7565aa' : 'transparent',
+                  color: selectedCurrency === 'ر.س' ? '#fff' : '#444',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🇸🇦 ر.س
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedCurrency('ر.ي')}
+                style={{
+                  border: 'none',
+                  background: selectedCurrency === 'ر.ي' ? '#7565aa' : 'transparent',
+                  color: selectedCurrency === 'ر.ي' ? '#fff' : '#444',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🇾🇪 ر.ي
+              </button>
+            </div>
+            <a href="/admin" className="sell-link" style={{ background: '#7565aa', color: 'white', textDecoration: 'none', padding: '3px 10px', borderRadius: '12px', fontWeight: 700 }}>لوحة التحكم ⚙️</a>
+            <button className="sell-link" onClick={() => setToast('سيتم ربط نموذج بيع الحقيبة')}>بيعي معنا</button>
+            <button onClick={() => setToast(`لديكِ ${favorites.length} في المفضلة`)}>قائمة المتابعة</button>
+            <button onClick={() => setCartOpen(true)}>مشترياتي</button>
+          </div>
         </div>
       </div>
 
@@ -233,9 +316,9 @@ function App() {
                   <button className={`favorite-button ${favorites.includes(product.id) ? 'active' : ''}`} onClick={() => setFavorites((items) => items.includes(product.id) ? items.filter((id) => id !== product.id) : [...items, product.id])} aria-label="المفضلة"><Icon name="heart" size={19} /></button>
                   {product.badge && <span className="product-badge">{product.badge}</span>}
                   <img src={product.image} alt={product.name} />
-                  <button className="quick-button" onClick={() => { setQuickView(product); setSelectedColor(product.colors[0]) }}>نظرة سريعة</button>
+                  <button className="quick-button" onClick={() => { setQuickView(product); setSelectedColor(product.colors?.[0] || '#deb0ad') }}>نظرة سريعة</button>
                 </div>
-                <div className="product-info"><span>{product.categoryLabel}</span><h3>{product.name}</h3><small className="seller-note">جديدة · من متجر على كيفك</small><div className="product-meta"><div><strong>{product.price} ر.س</strong>{product.oldPrice && <del>{product.oldPrice} ر.س</del>}</div><div className="swatches">{product.colors.map((color) => <i key={color} style={{ background: color }} />)}</div></div>{product.badge === 'شحن مجاني' || product.oldPrice ? <b className="shipping-note">توصيل مجاني</b> : <b className="shipping-note muted-note">توصيل خلال 2–4 أيام</b>}<button className="add-button" onClick={() => addToCart(product)}><Icon name="bag" size={17} /> أضيفي للسلة</button></div>
+                <div className="product-info"><span>{product.categoryLabel}</span><h3>{product.name}</h3><small className="seller-note">جديدة · من متجر على كيفك</small><div className="product-meta"><div><strong>{formatPrice(product.price)}</strong>{product.oldPrice && <del>{formatPrice(product.oldPrice)}</del>}</div><div className="swatches">{(product.colors?.length ? product.colors : ['#deb0ad']).map((color) => <i key={color} style={{ background: color }} />)}</div></div>{product.badge === 'شحن مجاني' || product.oldPrice ? <b className="shipping-note">توصيل مجاني</b> : <b className="shipping-note muted-note">توصيل خلال 2–4 أيام</b>}<button className="add-button" onClick={() => addToCart(product)}><Icon name="bag" size={17} /> أضيفي للسلة</button></div>
               </article>
             ))}
           </div> : <div className="empty-search"><Icon name="search" size={28} /><h3>لم نجد حقيبة مطابقة</h3><p>جرّبي كلمة أخرى أو اختاري تصنيفاً مختلفاً.</p><button onClick={() => { setSearch(''); setActiveCategory('all') }}>عرض كل الحقائب</button></div>}
@@ -263,19 +346,56 @@ function App() {
       {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
       <aside className={`mobile-menu ${menuOpen ? 'open' : ''}`} aria-hidden={!menuOpen}>
         <div className="drawer-header"><Brand /><button onClick={() => setMenuOpen(false)} aria-label="إغلاق"><Icon name="close" /></button></div>
+        <div style={{ padding: '12px 18px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#555' }}>العملة المعروضة:</span>
+          <div style={{ display: 'inline-flex', background: '#eae5f5', padding: '3px', borderRadius: '12px', gap: '4px' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedCurrency('ر.س')}
+              style={{
+                border: 'none',
+                background: selectedCurrency === 'ر.س' ? '#7565aa' : 'transparent',
+                color: selectedCurrency === 'ر.س' ? '#fff' : '#444',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇸🇦 ر.س
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCurrency('ر.ي')}
+              style={{
+                border: 'none',
+                background: selectedCurrency === 'ر.ي' ? '#7565aa' : 'transparent',
+                color: selectedCurrency === 'ر.ي' ? '#fff' : '#444',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              🇾🇪 ر.ي
+            </button>
+          </div>
+        </div>
         <nav>{categories.map((category) => <button key={category.id} onClick={() => chooseCategory(category.id)}>{category.label}<Icon name="chevron" /></button>)}<button onClick={() => { setMenuOpen(false); setToast('سيتم ربط صفحة تسجيل الدخول') }}>تسجيل الدخول<Icon name="user" /></button></nav>
       </aside>
 
       {cartOpen && <div className="backdrop" onClick={() => setCartOpen(false)} />}
       <aside className={`cart-drawer ${cartOpen ? 'open' : ''}`} aria-hidden={!cartOpen}>
         <div className="drawer-header"><div><small>مشترياتكِ</small><h2>سلة التسوق <b>({cartCount})</b></h2></div><button onClick={() => setCartOpen(false)} aria-label="إغلاق"><Icon name="close" /></button></div>
-        <div className="free-shipping"><p>{subtotal >= settings.freeShippingThreshold ? 'رائع! حصلتِ على الشحن المجاني' : `أضيفي ${Math.max(0, settings.freeShippingThreshold - subtotal)} ${settings.currency} لتحصلي على شحن مجاني`}</p><span><i style={{ width: `${Math.min(100, (subtotal / settings.freeShippingThreshold) * 100)}%` }} /></span></div>
-        {cart.length ? <><div className="cart-items">{cart.map((item, index) => <article className="cart-item" key={`${item.product.id}-${item.color}`}><img src={item.product.image} alt="" /><div><span>{item.product.categoryLabel}</span><h3>{item.product.name}</h3><small className="cart-color">اللون: <i style={{ background: item.color }} /></small><strong>{item.product.price} ر.س</strong><div className="quantity"><button onClick={() => updateQuantity(index, -1)}><Icon name="minus" size={14} /></button><span>{item.quantity}</span><button onClick={() => updateQuantity(index, 1)}><Icon name="plus" size={14} /></button></div></div><button className="remove-item" onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Icon name="trash" size={17} /></button></article>)}</div><div className="cart-summary"><div><span>المجموع الفرعي</span><strong>{subtotal} ر.س</strong></div><small>الشحن والضريبة تُحسب عند إتمام الطلب</small><button onClick={() => { setCartOpen(false); setCheckoutOpen(true); setOrderComplete(false) }}>إتمام الطلب <Icon name="arrow" size={18} /></button><p><Icon name="check" size={14} /> دفع آمن ومشفّر</p></div></> : <div className="empty-cart"><span><Icon name="bag" size={34} /></span><h3>سلّتكِ فارغة</h3><p>اكتشفي حقيبة تستحق الاقتناء.</p><button onClick={() => { setCartOpen(false); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }) }}>ابدئي التسوق</button></div>}
+        <div className="free-shipping"><p>{subtotal >= settings.freeShippingThreshold ? 'رائع! حصلتِ على الشحن المجاني' : `أضيفي ${formatPrice(Math.max(0, settings.freeShippingThreshold - subtotal))} لتحصلي على شحن مجاني`}</p><span><i style={{ width: `${Math.min(100, (subtotal / settings.freeShippingThreshold) * 100)}%` }} /></span></div>
+        {cart.length ? <><div className="cart-items">{cart.map((item, index) => <article className="cart-item" key={`${item.product.id}-${item.color}`}><img src={item.product.image} alt="" /><div><span>{item.product.categoryLabel}</span><h3>{item.product.name}</h3><small className="cart-color">اللون: <i style={{ background: item.color }} /></small><strong>{formatPrice(item.product.price)}</strong><div className="quantity"><button onClick={() => updateQuantity(index, -1)}><Icon name="minus" size={14} /></button><span>{item.quantity}</span><button onClick={() => updateQuantity(index, 1)}><Icon name="plus" size={14} /></button></div></div><button className="remove-item" onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Icon name="trash" size={17} /></button></article>)}</div><div className="cart-summary"><div><span>المجموع الفرعي</span><strong>{formatPrice(subtotal)}</strong></div><small>الشحن والضريبة تُحسب عند إتمام الطلب</small><button onClick={() => { setCartOpen(false); setCheckoutOpen(true); setOrderComplete(false) }}>إتمام الطلب <Icon name="arrow" size={18} /></button><p><Icon name="check" size={14} /> دفع آمن ومشفّر</p></div></> : <div className="empty-cart"><span><Icon name="bag" size={34} /></span><h3>سلّتكِ فارغة</h3><p>اكتشفي حقيبة تستحق الاقتناء.</p><button onClick={() => { setCartOpen(false); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }) }}>ابدئي التسوق</button></div>}
       </aside>
 
-      {quickView && <div className="modal-backdrop" onMouseDown={() => setQuickView(null)}><div className="product-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setQuickView(null)}><Icon name="close" /></button><div className="modal-image"><img src={quickView.image} alt={quickView.name} />{quickView.badge && <span>{quickView.badge}</span>}</div><div className="modal-content"><small>{quickView.categoryLabel}</small><h2>{quickView.name}</h2><div className="modal-price"><strong>{quickView.price} ر.س</strong>{quickView.oldPrice && <del>{quickView.oldPrice} ر.س</del>}</div><p>{quickView.description}</p><div className="modal-colors"><label>اختاري اللون</label><div>{quickView.colors.map((color, index) => <button key={color} className={selectedColor === color ? 'active' : ''} onClick={() => setSelectedColor(color)} style={{ background: color }} aria-label={`لون ${index + 1}`} />)}</div></div><div className="bag-features"><span><Icon name="check" size={15} /> حزام قابل للتعديل</span><span><Icon name="check" size={15} /> جيب داخلي منظّم</span></div><button className="modal-add" onClick={() => { addToCart(quickView, selectedColor); setQuickView(null); setCartOpen(true) }}>أضيفي للسلة — {quickView.price} ر.س <Icon name="bag" size={18} /></button><small className="modal-delivery"><Icon name="truck" size={17} /> يصلكِ خلال 2–5 أيام عمل</small></div></div></div>}
+      {quickView && <div className="modal-backdrop" onMouseDown={() => setQuickView(null)}><div className="product-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setQuickView(null)}><Icon name="close" /></button><div className="modal-image"><img src={quickView.image} alt={quickView.name} />{quickView.badge && <span>{quickView.badge}</span>}</div><div className="modal-content"><small>{quickView.categoryLabel}</small><h2>{quickView.name}</h2><div className="modal-price"><strong>{formatPrice(quickView.price)}</strong>{quickView.oldPrice && <del>{formatPrice(quickView.oldPrice)}</del>}</div><p>{quickView.description}</p><div className="modal-colors"><label>اختاري اللون</label><div>{(quickView.colors?.length ? quickView.colors : ['#deb0ad']).map((color, index) => <button key={color} className={selectedColor === color ? 'active' : ''} onClick={() => setSelectedColor(color)} style={{ background: color }} aria-label={`لون ${index + 1}`} />)}</div></div><div className="bag-features"><span><Icon name="check" size={15} /> حزام قابل للتعديل</span><span><Icon name="check" size={15} /> جيب داخلي منظّم</span></div><button className="modal-add" onClick={() => { addToCart(quickView, selectedColor); setQuickView(null); setCartOpen(true) }}>أضيفي للسلة — {formatPrice(quickView.price)} <Icon name="bag" size={18} /></button><small className="modal-delivery"><Icon name="truck" size={17} /> يصلكِ خلال 2–5 أيام عمل</small></div></div></div>}
 
-      {checkoutOpen && <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}><div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCheckoutOpen(false)}><Icon name="close" /></button>{orderComplete ? <div className="order-success"><span><Icon name="check" size={34} /></span><h2>تم استلام طلبك!</h2><p>رقم الطلب <strong>{orderNumber}</strong>. سنرسل تفاصيل الطلب والتوصيل إلى بريدك.</p><button onClick={() => setCheckoutOpen(false)}>العودة للمتجر</button></div> : <><div className="checkout-heading"><small>خطوة أخيرة</small><h2>بيانات التوصيل</h2><p>طلبك بقيمة <strong>{subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee)} {settings.currency}</strong></p></div><form className="checkout-form" onSubmit={submitOrder}><label>الاسم الكامل<input name="fullName" required placeholder="مثال: سارة محمد" /></label><label>رقم الجوال<input name="phone" required inputMode="tel" placeholder="05xxxxxxxx" pattern="[0-9+ ]{8,}" /></label><label>البريد الإلكتروني<input name="email" required type="email" placeholder="name@example.com" /></label><div><label>المدينة<input name="city" required placeholder="الرياض" /></label><label>الحي<input name="district" required placeholder="اسم الحي" /></label></div><label>العنوان بالتفصيل<textarea name="address" required placeholder="الشارع، رقم المبنى، أقرب معلم" /></label>{checkoutError ? <small className="checkout-error">{checkoutError}</small> : null}<button type="submit" disabled={submittingOrder}>{submittingOrder ? 'جارٍ إرسال الطلب…' : `تأكيد الطلب — ${subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee)} ${settings.currency}`} {!submittingOrder ? <Icon name="check" size={18} /> : null}</button><small>لن يتم خصم أي مبلغ؛ الدفع عند الاستلام.</small></form></>}</div></div>}
+      {checkoutOpen && <div className="modal-backdrop" onMouseDown={() => !orderComplete && setCheckoutOpen(false)}><div className="checkout-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCheckoutOpen(false)}><Icon name="close" /></button>{orderComplete ? <div className="order-success"><span><Icon name="check" size={34} /></span><h2>تم استلام طلبك!</h2><p>رقم الطلب <strong>{orderNumber}</strong>. سنرسل تفاصيل الطلب والتوصيل إلى بريدك.</p><button onClick={() => setCheckoutOpen(false)}>العودة للمتجر</button></div> : <><div className="checkout-heading"><small>خطوة أخيرة</small><h2>بيانات التوصيل</h2><p>طلبك بقيمة <strong>{formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}</strong></p></div><form className="checkout-form" onSubmit={submitOrder}><label>الاسم الكامل<input name="fullName" required placeholder="مثال: سارة محمد" /></label><label>رقم الجوال<input name="phone" required inputMode="tel" placeholder="05xxxxxxxx" pattern="[0-9+ ]{8,}" /></label><label>البريد الإلكتروني<input name="email" required type="email" placeholder="name@example.com" /></label><div><label>المدينة<input name="city" required placeholder="الرياض" /></label><label>الحي<input name="district" required placeholder="اسم الحي" /></label></div><label>العنوان بالتفصيل<textarea name="address" required placeholder="الشارع، رقم المبنى، أقرب معلم" /></label>{checkoutError ? <small className="checkout-error">{checkoutError}</small> : null}<button type="submit" disabled={submittingOrder}>{submittingOrder ? 'جارٍ إرسال الطلب…' : `تأكيد الطلب — ${formatPrice(subtotal + (subtotal >= settings.freeShippingThreshold ? 0 : settings.shippingFee))}`} {!submittingOrder ? <Icon name="check" size={18} /> : null}</button><small>لن يتم خصم أي مبلغ؛ الدفع عند الاستلام.</small></form></>}</div></div>}
 
       {toast && <div className="toast"><span><Icon name="check" size={16} /></span>{toast}</div>}
     </div>
